@@ -1,0 +1,593 @@
+<script src="app.js?v=5"></script>
+
+<iframe src="header.html?v=4" style="width:100%; height:50px; border:none;"></iframe>
+
+<script>
+    let userInfo;
+
+    document.addEventListener("DOMContentLoaded", function(){
+        const path = window.location.pathname;
+        const userId = localStorage.getItem('userId'); 
+
+        getUserInfo(userId);
+
+        const saveBtn = document.getElementById('save');
+        if(saveBtn){
+            saveBtn.addEventListener('click', function(event){
+                event.preventDefault();
+
+                let successFlag = false;
+                saveProfile(userId).then(success => {
+                    successFlag = success;
+                    console.log("success: ", success);
+                    saveCompanyInfo(userId).then(success2 => {
+                        successFlag = success2 || successFlag;
+                        
+                        console.log("success2: ", success2);
+                        if(successFlag) {
+                            alert("(Какие-то) данные были успешно обновлены! ", successFlag);
+                    }
+                    });
+                });
+            })
+        }
+
+    });
+
+    async function saveProfile(userId) {
+        const token = localStorage.getItem('token');
+
+        const username = document.getElementById('name');
+        const height = document.getElementById('height');
+        const birthday = document.getElementById('birthday');
+        const gender = document.getElementById('gender');
+        const description = document.getElementById('description');
+        const last_online = document.getElementById('last_online');
+
+        try{
+            let updateFlag = false;
+            let userInfoForSend = 
+            {   
+                birthday: userInfo.birthday,
+                height: userInfo.height,
+                last_online: userInfo.last_online,
+            };
+
+            //проверяем, какие поля были изменены, закидываем значения в userInfoForSend
+            if(username.value != "" && username.value != userInfo.name) {
+                userInfoForSend["name"] = username.value;
+                userInfo.name = username.value;
+                updateFlag = true;
+            }
+            else if(username.value == ""){
+                alert("Имя пользователя должно быть заполнено!");
+                return false;
+            }
+            if(description.value != userInfo.description){
+                userInfoForSend["description"] = description.value;
+                userInfo.description = description.value;
+                updateFlag = true;
+            }
+            if(false && birthday.value != userInfo.birthday){
+                userInfoForSend["birthday"] = birthday.value;
+                userInfo.birthday = birthday.value;
+                updateFlag = true;
+            }
+
+            if(!updateFlag){
+                //если ничего не поменяли, то запрос не делаем
+                return false;
+            }
+
+            userInfoForSend["id"] = userId;
+
+            //Обновление информации о пользователе
+            const response = await fetchWithAuth(IP+":"+PORT+"/api/users/" + userId ,{
+                method: 'PATCH',
+                headers:{
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(userInfoForSend)
+            });
+
+            
+            if(!response.ok){
+                console.error(`Ошибка ${response.status}`);
+                if(response.status == 404){
+                    alert("Ошибка сервера (сохр. инфы о пользователе): почему-то 404, что-то не нашлось, мб id юзера неверный был в запросе");
+                }
+                else 
+                    alert("Ошибка сервера (сохр. инфы о пользователе): что-то произошло при сохранении информации о пользователе: ", response.status);
+                return false;
+            }
+            else{
+                return true;
+            }
+        }
+        catch(error){
+            console.error("Auth error: ", error);
+            return false;
+        }
+    }
+
+    async function saveCompanyInfo(userId) {
+        const token = localStorage.getItem('token');
+
+        const dolzh = document.getElementById('dolzh');
+        const company = document.getElementById('comp');
+        const otdel = document.getElementById('otdel');
+        const office = document.getElementById('office');
+
+        try{
+            
+            let userCompanyInfoForSend = {};
+            let flag = false;
+
+            //проверяем, поменялась ли информация о компании
+            if(dolzh.value != userCompanyInfo.dolzh){
+                userCompanyInfoForSend["dolzh"] = dolzh.value;
+                userCompanyInfo.dolzh = dolzh.value;
+                flag = true;
+            }
+            if(company.value != userCompanyInfo.company_name){
+                userCompanyInfoForSend["company_name"] = company.value;
+                userCompanyInfo.company_name = company.value;
+                flag = true;
+            }
+            if(otdel.value != userCompanyInfo.otdel){
+                userCompanyInfoForSend["otdel"] = otdel.value;
+                userCompanyInfo.otdel = otdel.value;
+                flag = true;
+            }
+            if(otdel.value != userCompanyInfo.otdel){
+                userCompanyInfoForSend["office"] = office.value;
+                userCompanyInfo.office = office.value;
+                flag = true;
+            }
+
+            if(!flag){
+                //данные о компании не были исправлены, поэтому запроса тоже не было
+                return false;
+            }
+
+            const response = await fetchWithAuth(IP+":"+PORT+"/api/users/" + userId+"/company_info" ,{
+                method: 'PATCH',
+                headers:{
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(userCompanyInfoForSend)
+            });
+
+            if(!response.ok){
+                console.error(`Ошибка ${response.status}`);
+                if(response.status == 404){
+                    alert("Ошибка сервера (сохр. инфы о компании): почему-то 404, что-то не нашлось, мб id юзера неверный был в запросе");
+                }
+                else 
+                    alert("Ошибка сервера (сохр. инфы о компании): что-то произошло при сохранении информации о пользователе: ", response.status);
+                return false;
+            }
+            else
+                return true;
+        }
+        catch(error){
+            console.error("Auth error: ", error);
+            return false;
+        }
+    }
+
+    //отображение редактирования пользовательского профиля (местами более урезанная форма, чем сам профиль)
+    async function getUserInfo(userId) {
+        const token = localStorage.getItem('token');
+
+        try{
+            const response = await fetchWithAuth(IP+":"+PORT+"/api/users/" + userId ,{
+                method: 'GET',
+                headers:{
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if(!response.ok){
+                console.error(`Ошибка ${response.status}`);
+                if(response.status == 404){
+                    let currId = localStorage.getItem('userId');
+                    if(userId == currId)
+                        window.top.location.href = "/";
+                    else
+                        window.top.location.href = "/id"+currId;
+                }
+                else if(response.status == 401){
+                    window.top.location.href = "/";
+                }
+                return;
+            }
+
+            const result = await response.json();
+            
+            userInfo = result;
+            
+            const username = document.getElementById('name');
+            const height = document.getElementById('height');
+            const birthday = document.getElementById('birthday');
+            const age = document.getElementById('age');
+            const gender = document.getElementById('gender');
+            const description = document.getElementById('description');
+            const last_online = document.getElementById('last_online');
+
+            const ageNum = getAge(result.birthday);
+
+            username.innerText = `${result.name}`;
+
+            // height.innerText = `Рост: ${result.height}`;
+            // birthday.innerText = `День рождения: ${birthParser(result.birthday)}`; //TODO: сделать редактирование и поля для этих данных
+            // gender.innerText = `Пол: ${result.gender == "Male" ? "М" : "Ж"}`;
+
+            description.innerText = `${result.description}`;
+
+            console.log("Server response: ", result);
+            loadImage(userId);
+
+            getUserInterest(userId); //TODO: информация об интересах по иному будет
+
+            getUserCompanyInfo(userId);
+        }
+        catch(error){
+            console.error("Auth error: ", error);
+        }
+    }
+
+    //TODO: сделать получение по категориям, чтобы можно было сохранять
+    async function getUserInterest(userId) {
+        const token = localStorage.getItem('token');
+
+        try{
+            const responseCategory = await fetchWithAuth(IP+":"+PORT+"/api/categories" ,{
+                method: 'GET',
+                headers:{
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const response = await fetchWithAuth(IP+":"+PORT+"/api/users/" + userId +"/interestsByCategories" ,{
+                method: 'GET',
+                headers:{
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const interests = await response.json();
+
+            const categories = await responseCategory.json();
+            
+            const categoriesMap = new Map();
+            // interests.forEach(interestList => {
+
+            // })
+
+            Object.entries(interests).forEach(([categoryId, interestList]) => {
+                if(interestList.length === 0) return;
+
+                const categoryContainer = document.createElement('div');
+                categoryContainer.className = 'category-container';
+
+                const header = document.createElement('h4');
+                header.textContent = `${categories[categoryId-1].name}`;
+                categoryContainer.appendChild(header);
+
+                const bubbleContainer = document.createElement('div');
+                bubbleContainer.className = 'bubble-container';
+                //categoryContainer.appendChild(bubbleContainer);    
+
+                // Добавить баблы
+                interestList.forEach(interest => {
+                    const bubble = document.createElement('div');
+                    bubble.className = 'bubble';
+                    bubble.textContent = interest.name;
+                    // categoryContainer.appendChild(bubble);
+                    bubbleContainer.appendChild(bubble);
+                });
+
+                categoryContainer.appendChild(bubbleContainer);
+                document.getElementById('interests-container').appendChild(categoryContainer);
+
+                // const interestsСontainer = document.getElementById('interests-container');
+                    
+                //сортировка по ширине
+                window.addEventListener('load', () => {
+                    const bubbles = Array.from(bubbleContainer.children);
+                    const rows = [];
+                    let currentTop = -1;
+                    let currentRow = [];
+
+                    bubbles.forEach(bubble => {
+                        const top = bubble.offsetTop;
+                        if (top !== currentTop) {
+                            if (currentRow.length > 0) rows.push(currentRow);
+                            currentRow = [bubble];
+                            currentTop = top;
+                        } else {
+                            currentRow.push(bubble);
+                        }
+                    });
+                    if (currentRow.length > 0) rows.push(currentRow);
+
+                    rows.forEach(row => {
+                        const totalGap = (row.length - 1) * 10;
+                        const containerWidth = interestsСontainer.clientWidth;
+                        const widthPerBubble = Math.floor((containerWidth - totalGap) / row.length);
+
+                        row.forEach(bubble => {
+                            bubble.style.flex = '0 0 ' + widthPerBubble + 'px';
+                        });
+                    });
+                });    
+            });
+
+            console.log("Server response: ", interests);
+        }
+        catch(error){
+            console.error("Auth error: ", error);
+        }
+    }
+
+    //получение инфы о компании
+    async function getUserCompanyInfo(userId) {
+        const token = localStorage.getItem('token');
+
+        try{
+            const response = await fetchWithAuth(IP+":"+PORT+"/api/users/" + userId +"/company_info" ,{
+                method: 'GET',
+                headers:{
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const result = await response.json();
+
+            const dolzh = document.getElementById('dolzh');
+            const comp = document.getElementById('comp');
+            const otdel = document.getElementById('otdel');
+            const office = document.getElementById('office');
+
+            userCompanyInfo = result;
+
+            dolzh.innerText = `${result.dolzh}`;
+            comp.innerText = `${result.company_name}`;
+            otdel.innerText = `${result.otdel}`;
+            office.innerText = `${result.office}`;
+
+            console.log("Server response user company info: ", result);
+        }
+        catch(error){
+            console.error("Auth error: ", error);
+        }
+    }
+</script>
+
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Редактирование профиля</title>
+    </head>
+    <body>
+        <div id="profile">
+            <div class="photo-container">
+                <img id="photo" />
+                <button class="close-btn" id="close-btn">
+                    <img src="/icons/circle-with-cross-svgrepo-com.svg" />
+                </button>
+            </div><br><br>
+            <div>Имя пользователя:</div>
+            <textarea id="name" value="Введите имя" class="textarea-style" style="max-height: 30px;" required></textarea><br><br>
+            <!-- <div id="interests-container" style="display: flex; flex-wrap: wrap; gap: 10px; max-width: 400px; min-width: 400px;"></div><br> -->
+            <div id="interests-container" style="display: flex; flex-direction: column; gap: 20px;"></div><br>
+
+
+            
+            <div id="height"></div>
+            <div id="birthday"></div>
+        
+            <div id="gender"></div>
+            <div>Расскажите о себе:</div>
+            <textarea id="description" value="Описание отсутствует" class="textarea-style"></textarea>
+            <div>Должность:</div>
+            <textarea id="dolzh" value="Должность отсутствует" class="textarea-style" style="max-height: 30px;" ></textarea>
+            <div>Компания:</div>
+            <textarea id="comp" value="Компания отсутствует" class="textarea-style" style="max-height: 30px;" ></textarea>
+            <div>Отдел:</div>
+            <textarea id="otdel" value="Отдел отсутствует" class="textarea-style" style="max-height: 30px;" ></textarea>
+            <div>Офис:</div>
+            <textarea id="office" value="Офис отсутствует" class="textarea-style" style="max-height: 30px;" ></textarea>
+
+            <div style="margin-top: 10px; text-align: center; min-width: 400px;">
+                <button id="save" class="save-btn" >Сохранить</button>    
+            </div>
+            
+        </div>
+    </body> <br><br>
+
+    <div class="footer-wrapper">
+        <iframe class="footer-frame" src="footer.html?v=5" style="width:100%; height:50px; border:0; padding:0; margin:0; display:block;" scrolling="no"></iframe>
+    </div>
+</html>
+
+<style type="text/css">
+
+.save-btn {
+    width: auto;
+    border-radius: 12px;
+    border: 1px solid #306e31;;     
+    padding: 8px 12px;
+    font-size: 14px;
+    outline: none;
+    color: #306e31;
+    background-color: white;     
+    cursor: pointer;            
+    transition: border-color 0.3s;
+}
+.save-btn:hover {
+    background-color: #ebffeb; 
+    border-color: #235023;
+}
+
+.save-btn:active {
+    transform: scale(0.97);   
+    transition: transform 0.1s;  
+    background-color: #e1ffe1; 
+    border-color: #235023;
+}
+
+#photo {
+    display: block;
+    width: 125px;
+    height: 125px;
+    border-radius: 20px;
+    
+    filter: drop-shadow(0 0 3px rgba(0, 0, 0, 1));
+}
+
+.photo-container{
+    position: relative;
+    display: inline-block;
+}
+
+.close-btn{
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    width: 40px;
+    height: 40px;
+    background-color: #ffffff00;
+    border:none;
+    padding: 0;
+    opacity: 0.7;
+    box-sizing: border-box;
+}
+
+.close-btn img{
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    pointer-events: none;
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.7));
+}
+
+
+.close-btn:hover {
+  opacity: 1;
+}
+
+.oval {
+    padding: 8px 16px;
+    border-radius: 999px;
+    background-color: #306e31;
+    color: #ffffff;
+    font-size: 14px;
+    font: bold;
+    font-family: Arial, sans-serif;
+    display: inline-block;
+    white-space: nowrap;
+    user-select: none;
+}
+
+textarea {
+    border-radius: 12px;
+    border: 1 px solid #ccc;
+    padding: 8px 12px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+.textarea-style{
+    max-width: 400px; 
+    min-width: 400px; 
+    resize: none; 
+    overflow: hidden;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+}
+
+h4 {
+  font-weight: normal;
+  margin-top: 0px;
+  margin-bottom: 5px; /* или 0, если вообще не нужен отступ */
+}
+
+.interests-container {
+    display: flex;
+    flex-direction: column;
+    margin-top: 0px;
+    gap: 0px;
+    max-width: 400px;
+    min-width: 400px;
+}
+
+.category-container {
+    /* width: 400px; */
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+}
+
+.bubble-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 400px; 
+}
+
+.bubble {
+    padding: 6px 12px;
+    background-color: #2d6a2e;
+    color: white;
+    border-radius: 20px;
+    text-align: center;
+    white-space: nowrap;
+    font-size: 14px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    /* background-color: #e0e0e0;
+    padding: 8px 12px;
+    border-radius: 20px;
+    white-space: nowrap; */
+}
+
+.row {
+    display: flex;
+    width: 100%;
+    gap: 10px;
+}
+
+#profile{
+    width: 30vw; 
+    flex: 1 0 auto;
+    margin: 0 auto;
+}
+
+.footer-wrapper {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+</style>

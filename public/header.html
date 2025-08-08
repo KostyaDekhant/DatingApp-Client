@@ -1,0 +1,109 @@
+<script>
+    document.addEventListener('DOMContentLoaded', function(){
+        const logoutBtn = document.getElementById('logout');
+        const edit = document.getElementById('edit');
+        const profile = document.getElementById('profile');
+        const userId = localStorage.getItem('userId');
+
+        if(logoutBtn){
+            logoutBtn.addEventListener('click', function(event) {
+                event.preventDefault();
+                localStorage.removeItem('token');
+                localStorage.removeItem('refreshToken');
+                localStorage.removeItem('userId');
+                window.top.location.href = '/';
+            });
+        }
+        if(edit){
+            edit.addEventListener('click', function(event){
+                event.preventDefault();
+                window.top.location.href = '/edit';
+            });
+
+            if(window.top.location.pathname === "/edit")
+                edit.style.display = "none";
+            else
+                edit.style.display = "";
+        }
+        if(profile){
+            profile.addEventListener('click', function(event){
+                event.preventDefault();
+                window.top.location.href = "/id"+userId;
+            });
+
+            if(window.top.location.pathname === "/id"+userId){
+                profile.style.display = "none";
+            }
+            else
+                profile.style.display = "";
+        }
+
+
+    });
+</script>
+
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <!-- <title>Профиль</title> -->
+    </head>
+    <body>
+        <div id="container">
+            <button id="profile" class="right">Профиль</button>
+            <button id="edit" class="right">Редактировать</button>
+            <button id="logout" class="right">Выйти</button>
+        </div>
+    </body>
+</html>
+
+<style type="text/css">
+
+body {
+  font-family: Arial, sans-serif;
+}
+
+#container{
+    /* width: 1000px; */
+    display: flex;
+    justify-content: flex-end;
+    padding-left: 10px;
+    
+}
+
+#container button {
+  margin-right: 10px; 
+}
+
+#container button.right {
+  /* margin-left: auto;  
+  margin-right: 0;       */
+}
+
+button {
+    width: auto;
+    border-radius: 12px;
+    border: 1px solid #306e31;;     
+    padding: 8px 12px;
+    font-size: 14px;
+    outline: none;
+    color: #306e31;
+    background-color: white;     
+    cursor: pointer;            
+    transition: border-color 0.3s;
+}
+button:hover {
+    background-color: #ebffeb; 
+    border-color: #235023;
+}
+
+button:active {
+    transform: scale(0.97);   
+    transition: transform 0.1s;  
+    background-color: #e1ffe1; 
+    border-color: #235023;
+}
+
+
+</style>

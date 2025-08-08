@@ -1,0 +1,98 @@
+<script src="app.js?v=1"></script>
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Authorization</title>
+    </head>
+    <body>
+        <div class="input-container">
+            <div class="signup-wrapper" style="font-size: x-large; color: rgb(99, 99, 99);">
+                Вход в аккаунт
+            </div>
+            <div>Логин</div>
+            <input class="input-space" id="username" placeholder="Введите логин">
+            <div>Пароль</div>
+            <input class="input-space" id="password" placeholder="Введите пароль" type="password">
+            <div class="button-wrapper">
+                <button onclick="auth()">Войти</button>
+            </div><br>
+            <div class="signup-wrapper">
+                <div>Ещё нет аккаунта?</div><br>
+                <div>
+                    <a href="" style="color: #306e31">Регистрация</a>
+                </div>
+            </div>
+        </div>
+        
+    </body>
+</html>
+
+
+
+<style type="text/css">
+
+body {
+  font-family: Arial, sans-serif;
+}
+
+.button-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.signup-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center; 
+    text-align: center;  
+    margin-top: 12px; 
+}
+
+
+.input-container{
+    width: 30vw; 
+    margin: 100px auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+button {
+    width: 100px;
+    border-radius: 12px;
+    border: 1px solid #306e31;;     
+    padding: 8px 12px;
+    font-size: 14px;
+    outline: none;
+    color: #306e31;
+    background-color: white;     
+    cursor: pointer;            
+    transition: border-color 0.3s;
+}
+button:hover {
+    background-color: #ebffeb; 
+    border-color: #235023;
+}
+
+button:active {
+    transform: scale(0.97);   
+    transition: transform 0.1s;  
+    background-color: #e1ffe1; 
+    border-color: #235023;
+}
+
+.input-space {
+    border-radius: 12px;
+    border: 1px solid #ccc;
+    padding: 8px 12px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+</style>
