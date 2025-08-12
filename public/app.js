@@ -1,5 +1,5 @@
-const IP = "https://45.12.255.26";//localhost
-const PORT = "8081"
+const IP = "http://localhost";//45.12.255.26
+const PORT = "8082"
 
 async function fetchWithAuth(url, options = {}) {
     const response = await fetch(url, options);
