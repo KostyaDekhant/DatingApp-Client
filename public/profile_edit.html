@@ -3,9 +3,11 @@
 <iframe src="header.html?v=4" style="width:100%; height:50px; border:none;"></iframe>
 
 <script>
-    let userInfo;
-    let categoriesList;
-    let userInterestList;
+    let userInfo; //хранит инфу о юзере, чтобы потом проверить, какие данные были изменены 
+    let categoriesList; //список всех категорий
+    let userInterestList; //интересы юзера (по категориям)
+    let interestList; //все интересы (по категориям)
+    let allUserInterests; //все интересы пользователя списком
 
     document.addEventListener("DOMContentLoaded", async function(){
         const path = window.location.pathname;
@@ -34,21 +36,24 @@
             })
         }
         
-        
+        //обработка сохранения интересов
         const interestsChange = document.getElementById('changeInterests');
         const openInterestChange = document.getElementById('interestsChangeList');
         const closeInterestChange = document.getElementById('closeInterests');
         const checkBoxList = document.getElementById('checkBoxList');
         const saveInterest = document.getElementById('saveInterests');
 
+        //открыть окно выбора интересов
         openInterestChange.addEventListener('click', async () => {
             interestsChange.style.display = 'block';
-            
-            const res = await getInterestsWithCategories(userId);
-            const allItems = Object.values(res).flat();
 
+            //тут мы получаем список всех интересов по категориям, если его ещё нет
+            if(interestList == null)
+                interestList = await getInterestsWithCategories(userId);
+
+            //рисуем чекбоксы по категориям
             const categoriesHtml = categoriesList.map(category => {
-                const interests = res[category.pk_category] || []; // если нет интересов, пустой массив
+                const interests = interestList[category.pk_category] || [];
 
                 const checkboxesHtml = interests.map(item => `
                     <label>
@@ -63,35 +68,121 @@
                     </details>
                 `;
             }).join('');
-
+            
             checkBoxList.innerHTML = categoriesHtml;
-        });
 
+            //получаем список всех интересов юзера одним списком
+            allUserInterests = Object.values(userInterestList).flatMap(list => list);
+            //выбираем pk_interest этих интересов
+            const selectedIds = allUserInterests.map(i => i.pk_interest);
+
+            const checkBoxes = checkBoxList.querySelectorAll('input[type="checkbox"]');
+            //пробегаем по checkboxes, устанавливаем checked там, где интересы у пользователя имеются
+            checkBoxes.forEach(cb => {
+                const value = parseInt(cb.value);
+                cb.checked = selectedIds.includes(value);
+            });
+        });
+        //закрытие панели выбора интересов
         closeInterestChange.addEventListener('click', () => {
             interestsChange.style.display = 'none';
-            console.log("Закрыли!");
         });
 
-        saveInterest.addEventListener('click', async () => {
+        //получаем выбранные checkbox массивом
+        function getCurrentSelected(){
             const checkBoxes = checkBoxList.querySelectorAll('input[type="checkbox"]:checked');
-            const selected = Array.from(checkBoxes).map(cb => parseInt(cb.value));
+            return Array.from(checkBoxes).map(cb => parseInt(cb.value));
+        }
 
-            console.log(selected);
-            return;
+        function getChanges(){
+            const currentSelected = getCurrentSelected();
 
+            //получаем массив pk_interest из allUserInterests
+            const allIds = allUserInterests.map(i => i.pk_interest);
+
+            //выбираем только новые интересы, фильтруем из тех, что уже были у юзера
+            const added = currentSelected.filter(pk_interest => !allIds.includes(pk_interest));
+            
+            //выбираем только удалённые интересы, фильтруем из тех, что уже были у юзера
+            const removed = allIds.filter(pk_interest => !currentSelected.includes(pk_interest));
+
+            return {added, removed};
+        }
+        
+        const token = localStorage.getItem('token');
+        saveInterest.addEventListener('click', async () => {
+            const { added, removed } = getChanges();
+            
+            //получаем json объекты, состоящие из ключей значений pk_interest
+            const jsonAdded = added.map(value => ({
+                pk_interest: value
+            }))
+
+            const jsonRemoved = removed.map(value => ({
+                pk_interest: value
+            }))
+            //запрос на сохранение новых интересов
             const res = await fetchWithAuth(IP+":"+PORT+`/api/users/${userId}/interests`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ selected })
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(jsonAdded)
+            })
+            //запрос на удаление интересов
+            const resRemove = await fetchWithAuth(IP+":"+PORT+`/api/users/${userId}/interests/remove`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(jsonRemoved)
             })
 
-            const result = await res.json();
-            if(result.ok){
-                alert("Данные сохранены!");
+
+            if(res.ok && resRemove.ok){
+                console.log("Данные обновлены!");
                 interestsChange.style.display = 'none';
+
+                //получаем map для быстрого поиска категории по pk_interest
+                const interestIdToCategory = new Map();
+                for (const [catId, interests] of Object.entries(interestList)) {
+                    interests.forEach(i => interestIdToCategory.set(i.pk_interest, parseInt(catId)));
+                }
+
+                added.forEach(id => {
+                    const catId = interestIdToCategory.get(id);
+                    if (!catId) return; //если не нашли категорию, пропускаем
+
+                    const allInterestsInCat = interestList[catId]; //все возможные интересы в категории
+                    const interestToAdd = allInterestsInCat.find(i => i.pk_interest === id);
+                    if (!interestToAdd) return;
+
+                    if (!userInterestList[catId]) {
+                        userInterestList[catId] = [];
+                    }
+
+                    //добавляем только если ещё нет нового интереса
+                    if (!userInterestList[catId].some(i => i.pk_interest === id)) {
+                        userInterestList[catId].push(interestToAdd);
+                    }
+                });
+                
+                removed.forEach(id => {
+                    const catId = interestIdToCategory.get(id);
+                    if (!catId) return;
+                    //просто по id находим интерес, в нужном списке по ключу удаляем
+                    if (userInterestList[catId]) {
+                        userInterestList[catId] = userInterestList[catId].filter(i => i.pk_interest !== id);
+                    }
+                });
+                //перерисовываем баблы
+                drawBubbles(userInterestList, categoriesList);
+
             }
             else{
-                alert("Упс! Что-то не так: ", result);
+                alert(`Упс! Что-то не так: ${res}, ${resRemove}`);
             }
 
         });
@@ -317,7 +408,7 @@
 
             description.innerText = `${result.description}`;
 
-            console.log("Server response: ", result);
+            //console.log("Server response: ", result);
             loadImage(userId);
 
             getUserInterest(userId); //TODO: информация об интересах по иному будет
@@ -329,7 +420,6 @@
         }
     }
 
-    //TODO: сделать получение по категориям, чтобы можно было сохранять
     async function getUserInterest(userId) {
         const token = localStorage.getItem('token');
 
@@ -357,75 +447,78 @@
             categoriesList = categories;
             userInterestList = interests;
 
-            const categoriesMap = new Map();
-            // interests.forEach(interestList => {
+            drawBubbles(interests, categories);
 
-            // })
-
-            Object.entries(interests).forEach(([categoryId, interestList]) => {
-                if(interestList.length === 0) return;
-
-                const categoryContainer = document.createElement('div');
-                categoryContainer.className = 'category-container';
-
-                const header = document.createElement('h4');
-                header.textContent = `${categories[categoryId-1].name}`;
-                categoryContainer.appendChild(header);
-
-                const bubbleContainer = document.createElement('div');
-                bubbleContainer.className = 'bubble-container';
-                //categoryContainer.appendChild(bubbleContainer);    
-
-                // Добавить баблы
-                interestList.forEach(interest => {
-                    const bubble = document.createElement('div');
-                    bubble.className = 'bubble';
-                    bubble.textContent = interest.name;
-                    // categoryContainer.appendChild(bubble);
-                    bubbleContainer.appendChild(bubble);
-                });
-
-                categoryContainer.appendChild(bubbleContainer);
-                document.getElementById('interests-container').appendChild(categoryContainer);
-
-                // const interestsСontainer = document.getElementById('interests-container');
-                    
-                //сортировка по ширине
-                window.addEventListener('load', () => {
-                    const bubbles = Array.from(bubbleContainer.children);
-                    const rows = [];
-                    let currentTop = -1;
-                    let currentRow = [];
-
-                    bubbles.forEach(bubble => {
-                        const top = bubble.offsetTop;
-                        if (top !== currentTop) {
-                            if (currentRow.length > 0) rows.push(currentRow);
-                            currentRow = [bubble];
-                            currentTop = top;
-                        } else {
-                            currentRow.push(bubble);
-                        }
-                    });
-                    if (currentRow.length > 0) rows.push(currentRow);
-
-                    rows.forEach(row => {
-                        const totalGap = (row.length - 1) * 10;
-                        const containerWidth = interestsСontainer.clientWidth;
-                        const widthPerBubble = Math.floor((containerWidth - totalGap) / row.length);
-
-                        row.forEach(bubble => {
-                            bubble.style.flex = '0 0 ' + widthPerBubble + 'px';
-                        });
-                    });
-                });    
-            });
-
-            console.log("Server response: ", interests);
+            //console.log("Server response: ", interests);
         }
         catch(error){
             console.error("Auth error: ", error);
         }
+    }
+
+    async function drawBubbles(interests, categories) {
+        const interestsContainer = document.getElementById('interests-container');
+
+        interestsContainer.innerHTML = '';
+
+        //проходим по всем интересам юзера именно 
+        Object.entries(interests).forEach(([categoryId, interestList]) => {
+            if(interestList.length === 0) return;
+            //создаём отдельный контейнер под категорию
+            const categoryContainer = document.createElement('div');
+            categoryContainer.className = 'category-container';
+
+            //в заголоовке пишем её название
+            const header = document.createElement('h4');
+            header.textContent = `${categories[categoryId-1].name}`;
+            categoryContainer.appendChild(header);
+
+            //для категории создаём контейнер баблов
+            const bubbleContainer = document.createElement('div');
+            bubbleContainer.className = 'bubble-container';
+
+            //добавить баблы конкретной категории
+            interestList.forEach(interest => {
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                bubble.textContent = interest.name;
+                bubbleContainer.appendChild(bubble);
+            });
+            //добавляем баблы в контейнер категорий, который в свою очередь
+            //в общий interestContainer
+            categoryContainer.appendChild(bubbleContainer);
+            interestsContainer.appendChild(categoryContainer);
+                    
+            //сортировка по ширине
+            window.addEventListener('load', () => {
+                const bubbles = Array.from(bubbleContainer.children);
+                const rows = [];
+                let currentTop = -1;
+                let currentRow = [];
+
+                bubbles.forEach(bubble => {
+                    const top = bubble.offsetTop;
+                    if (top !== currentTop) {
+                        if (currentRow.length > 0) rows.push(currentRow);
+                        currentRow = [bubble];
+                        currentTop = top;
+                    } else {
+                        currentRow.push(bubble);
+                    }
+                });
+                if (currentRow.length > 0) rows.push(currentRow);
+
+                rows.forEach(row => {
+                    const totalGap = (row.length - 1) * 10;
+                    const containerWidth = interestsСontainer.clientWidth;
+                    const widthPerBubble = Math.floor((containerWidth - totalGap) / row.length);
+
+                    row.forEach(bubble => {
+                        bubble.style.flex = '0 0 ' + widthPerBubble + 'px';
+                    });
+                });
+            });    
+        });    
     }
 
     //получение инфы о компании
@@ -488,7 +581,9 @@
             <div id="height"></div>
             <div id="birthday"></div>
             
-            <button id="interestsChangeList" class="save-btn" >+</button>
+            <div style="margin-top: 10px; text-align: center; min-width: 400px;">
+                <button id="interestsChangeList" class="save-btn" >+</button>
+            </div>
 
             <div id="changeInterests" class="modal">
                 <div class="interestsContent">
