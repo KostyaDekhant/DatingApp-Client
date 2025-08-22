@@ -1,4 +1,4 @@
-<script src="app.js?v=8"></script>
+<script src="app.js?v=17"></script>
 
 <iframe src="header.html?v=4" style="width:100%; height:50px; border:none;"></iframe>
 
@@ -565,12 +565,13 @@
     </head>
     <body>
         <div id="profile">
-            <div class="photo-container">
-                <img id="photo" />
-                <button class="close-btn" id="close-btn">
+            <div id="photos-wrapper" class="photos-wrapper">
+                <!-- <img id="photo" />
+                <button class="close-btn" id="remove-img-btn">
                     <img src="/icons/circle-with-cross-svgrepo-com.svg" />
-                </button>
-            </div><br><br>
+                </button> -->
+            </div>
+            <br><br>
             <div>Имя пользователя:</div>
             <textarea id="name" value="Введите имя" class="textarea-style" style="max-height: 30px;" required></textarea><br><br>
             <!-- <div id="interests-container" style="display: flex; flex-wrap: wrap; gap: 10px; max-width: 400px; min-width: 400px;"></div><br> -->
@@ -667,10 +668,19 @@
     
     filter: drop-shadow(0 0 3px rgba(0, 0, 0, 1));
 }
+.photo {
+    display: block;
+    width: 125px;
+    height: 125px;
+    border-radius: 20px;
+    
+    filter: drop-shadow(0 0 3px rgba(0, 0, 0, 1));
+}
 
-.photo-container{
+.photo-wrapper{
     position: relative;
     display: inline-block;
+    margin-right: 5px;
 }
 
 .close-btn{

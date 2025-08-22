@@ -102,10 +102,10 @@ function getAge(birth){
     return age;
 }
 
-async function loadImage(userId) {
+async function loadImage2(userId) {
     try{
         const token = localStorage.getItem('token');
-        const response = await fetch(IP+":"+PORT+"/api/users/"+userId+"/images?limit=1", {
+        const response = await fetchWithAuth(IP+":"+PORT+"/api/users/"+userId+"/images?limit=1", {
             method: 'GET',
             headers:{
                 'Content-Type': 'application/json',
@@ -124,5 +124,71 @@ async function loadImage(userId) {
     catch(error){
         console.error("Ошибка: ", error);
     }
+}
     
+async function loadImage(userId) {
+    try{
+        const token = localStorage.getItem('token');
+        const response = await fetchWithAuth(IP+":"+PORT+"/api/v2/users/"+userId+"/images?limit=6", {
+            method: 'GET',
+            headers:{
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        if(!response.ok) throw new Error("Ошибка загрузки изображения");
+        const data = await response.json();
+        console.log(data);
+        const wrapper = document.getElementById('photos-wrapper');
+
+        data.forEach(photo => {
+            const [image_id, id, image] = photo;
+            const photoCont = document.createElement("div");
+            photoCont.classList.add("photo-wrapper");
+            photoCont.dataset.photoId = image_id;
+
+            const img = document.createElement("img");
+            img.classList.add("photo");
+            img.src = IP +":"+PORT + "/" + image;
+            img.alt = "Фото";
+
+            const removeBtn = document.createElement("button");
+            removeBtn.classList.add("close-btn");
+            removeBtn.innerHTML = `<img src="/icons/circle-with-cross-svgrepo-com.svg" />`;
+
+            removeBtn.addEventListener("click", () => {
+                const id = photoCont.dataset.photoId;
+                console.log("Попытка удаления");
+                removeImage(id);
+                photoCont.remove();
+            });
+            photoCont.appendChild(img);
+            photoCont.appendChild(removeBtn);
+
+            wrapper.appendChild(photoCont);
+        });
+
+    }
+    catch(error){
+        console.error("Ошибка: ", error);
+    }
+}
+
+async function removeImage(picId) {
+    try{
+        const token = localStorage.getItem('token');
+        const response = await fetchWithAuth(IP+":"+PORT+"/api/v2/images/"+picId+"/delete", {
+            method: 'DELETE',
+            headers:{
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        if(!response.ok) throw new Error("Ошибка при удалении изображения");
+        console.log("Успешное удаление фотки с id: " +picId);
+        // document.getElementById('photo').src = null;
+    }
+    catch(error){
+        console.error("Ошибка: ", error);
+    }
 }
